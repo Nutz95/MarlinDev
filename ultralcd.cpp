@@ -1443,10 +1443,9 @@ menu_edit_type(unsigned long, long5, ftostr5, 0.01)
   }
 #endif
 
-void lcd_quick_feedback() {
-  lcdDrawUpdate = 2;
-  next_button_update_ms = millis() + 500;
 
+void lcd_warning_beep()
+{
   #if ENABLED(LCD_USE_I2C_BUZZER)
     #ifndef LCD_FEEDBACK_FREQUENCY_HZ
       #define LCD_FEEDBACK_FREQUENCY_HZ 100
@@ -1471,6 +1470,11 @@ void lcd_quick_feedback() {
   #endif
 }
 
+void lcd_quick_feedback() {
+  lcdDrawUpdate = 2;
+  next_button_update_ms = millis() + 500;
+  lcd_warning_beep();
+}
 /**
  *
  * Menu actions

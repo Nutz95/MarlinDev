@@ -24,6 +24,10 @@
 #include "language.h"
 #include "Sd2PinMap.h"
 
+#ifdef MQ2_GAZ_DETECTOR
+  #include "Gaz_Detector.h"
+#endif
+
 #if ENABLED(USE_WATCHDOG)
   #include "watchdog.h"
 #endif
@@ -195,6 +199,12 @@ static void updateTemperaturesFromRawValues();
   static int read_max6675();
 #endif
 
+#ifdef MQ2_GAZ_DETECTOR
+  MQSmokeDetector smokeDetector = MQSmokeDetector();
+  bool smoked_detected = false;
+  int LastSmokeValue = 0;
+  int smoke_confirmation_Count = MQ2_SMOKE_CONFIRM_COUNT;
+#endif
 //===========================================================================
 //================================ Functions ================================
 //===========================================================================
@@ -600,6 +610,7 @@ float get_pid_output(int e) {
  *  - Manage extruder auto-fan
  *  - Apply filament width to the extrusion rate (may move)
  *  - Update the heated bed PID output value
+ *  - Invoke MQ2 Smoke Detection
  */
 void manage_heater() {
 
@@ -654,6 +665,10 @@ void manage_heater() {
     #endif
 
   } // Extruders Loop
+
+#ifdef MQ2_GAZ_DETECTOR
+  manage_smoke();
+#endif
 
   #if HAS_AUTO_FAN
     if (ms > next_auto_fan_check_ms) { // only need to check fan state very infrequently
@@ -717,6 +732,77 @@ void manage_heater() {
     #endif
   #endif //TEMP_SENSOR_BED != 0
 }
+
+#ifdef MQ2_GAZ_DETECTOR
+void manage_smoke()
+{
+#ifdef USE_ANALOG_MODE
+        float current_smoke_ppm  = smokeDetector.GetGasPPM(smokeDetector.Read(MQ2_PIN)/smokeDetector.Ro,GAS_SMOKE);
+         #ifdef MQ2_VERBOSE
+         if( LastSmokeValue != current_smoke_ppm && current_smoke_ppm > 0)
+         {
+           LastSmokeValue = current_smoke_ppm;
+	    SERIAL_PROTOCOL(MSG_MQ2_SMOKE);
+            SERIAL_PROTOCOL((int)current_smoke_ppm);
+	    SERIAL_PROTOCOL("ppm");
+            SERIAL_EOL;
+          }
+         #endif
+		 if( current_smoke_ppm >= MQ2_ALARM_TRIGGER_LEVEL_PPM && smoked_detected == false )
+#else
+        #ifdef INVERT_DIGITAL_SIGNAL
+            if( smokeDetector.ReadDigitalPin(MQ2_PIN) == 0 && smoked_detected == false )
+        #else
+            if( smokeDetector.ReadDigitalPin(MQ2_PIN) == 1 && smoked_detected == false )
+        #endif
+	
+#endif
+        {
+          smoke_confirmation_Count -= 1;
+          if(smoke_confirmation_Count >= 0 )
+          {
+            return;
+          }
+          smoked_detected = true;
+          SERIAL_ERROR_START;
+          SERIAL_ERRORLNPGM(MSG_MQ2_SMOKE_DETECTED);
+#ifdef MQ2_ENABLE_LCD_WARNING
+  #ifdef ULTRA_LCD 
+            LCD_ALERTMESSAGEPGM(MSG_MQ2_SMOKE_DETECTED);
+  #endif
+#endif
+          disable_all_heaters();
+          disable_all_steppers();
+          for (;;) 
+          {
+            lcd_update();
+            manage_heater();
+            
+#ifdef MQ2_ENABLE_LCD_WARNING
+#ifdef ULTRA_LCD 
+            #ifdef MQ2_ENABLE_WARNING_BEEP
+                lcd_warning_beep();
+            #endif
+            #ifdef MQ2_ENABLE_LCD_WARNING_BLINK
+              lcd_init();
+            #endif
+            #ifdef MQ2_WARNING_BEEP_SPACING
+              if(MQ2_WARNING_BEEP_SPACING > 0)
+              {
+                 delay(MQ2_WARNING_BEEP_SPACING);
+              }
+            #endif 
+#endif 
+#endif
+      }//for
+   }//if( current_smoke_ppm >= MQ2_ALARM_TRIGGER_LEVEL_PPM && smoked_detected == false )
+   else
+   {
+     smoke_confirmation_Count = MQ2_SMOKE_CONFIRM_COUNT;
+   }
+ }
+#endif  
+
 
 #define PGM_RD_W(x)   (short)pgm_read_word(&x)
 // Derived from RepRap FiveD extruder::getTemperature()
@@ -1029,6 +1115,27 @@ void tp_init() {
       #endif
     }
   #endif //BED_MAXTEMP
+  
+  #ifdef MQ2_GAZ_DETECTOR
+   SERIAL_ECHO_START;
+   SERIAL_ECHOLNPGM(MSG_MQ2_MODE);
+   #ifdef USE_ANALOG_MODE
+   SERIAL_ECHO_START;
+   SERIAL_ECHOLNPGM(MSG_MQ2_CALIBRATING);
+   smokeDetector.Calibration(MQ2_PIN, true);
+   SERIAL_ECHO_START;
+   SERIAL_ECHOLNPGM(MSG_MQ2_CALIBRATION_DONE);
+   SERIAL_ECHO_START; 
+   SERIAL_ECHOPGM(MSG_MQ2_RO);
+   SERIAL_ECHOLN(smokeDetector.Ro);
+   #else
+   SERIAL_ECHO_START;
+   SERIAL_ECHOLNPGM(MSG_MQ2_CALIBRATING);
+   smokeDetector.Calibration(MQ2_PIN, false);
+   SERIAL_ECHO_START;
+   SERIAL_ECHOLNPGM(MSG_MQ2_CALIBRATION_DONE);
+   #endif
+  #endif
 }
 
 #if ENABLED(THERMAL_PROTECTION_HOTENDS)

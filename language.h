@@ -211,6 +211,22 @@
 #define MSG_DEBUG_DRYRUN                    "DEBUG DRYRUN ENABLED"
 #define MSG_DEBUG_LEVELING                  "DEBUG LEVELING ENABLED"
 
+//MQ2 Smoke sensor
+#if ENABLED(MQ2_GAZ_DETECTOR)
+  #define MSG_MQ2_RO                          "R0:"
+  #define MSG_MQ2_CALIBRATING                 "MQ2 Gaz sensor calibrating...."
+  #define MSG_MQ2_CALIBRATION_DONE            "MQ2 Gaz sensor calibration done!"
+  #define MSG_MQ2_LPG                         "MQ2 - LPG Level:"
+  #define MSG_MQ2_CO                          "MQ2 - CO Level:"
+  #define MSG_MQ2_SMOKE                       "MQ2 - SMOKE Level:"
+  #define MSG_MQ2_SMOKE_DETECTED              "ERROR SMOKE Detected"
+  	#if ENABLED(USE_ANALOG_MODE)
+  		#define MSG_MQ2_MODE             "Current Mode: Analog"
+  	#else
+  		#define MSG_MQ2_MODE             "Current Mode: Digital"
+  	#endif
+#endif
+
 // LCD Menu Messages
 
 #if DISABLED(DISPLAY_CHARSET_HD44780_JAPAN) && DISABLED(DISPLAY_CHARSET_HD44780_WESTERN) && DISABLED(DISPLAY_CHARSET_HD44780_CYRILLIC)

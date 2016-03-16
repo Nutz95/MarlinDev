@@ -58,6 +58,7 @@
     extern millis_t previous_lcd_status_ms;
   #endif
   void lcd_quick_feedback(); // Audible feedback for a button click - could also be visual
+  void lcd_warning_beep();
   bool lcd_clicked();
 
   void lcd_ignore_click(bool b=true);
